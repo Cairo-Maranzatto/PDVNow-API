@@ -1,0 +1,52 @@
+## Build results
+[Bb]in/
+[Oo]bj/
+
+## Visual Studio
+.vs/
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Rider
+.idea/
+
+## VS Code
+.vscode/
+
+## OS
+[Dd]esktop.ini
+Thumbs.db
+
+## Logs
+*.log
+
+## NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+## Test results
+TestResults/
+
+## Publish
+**/[Pp]ublishProfiles/
+**/[Pp]ublish/
+
+## Local settings / secrets
+appsettings.json
+appsettings.*.json
+
+## User secrets store (kept outside repo, but ignore if present)
+secrets.json
+
+## EF Core
+*.db
+*.db-shm
+*.db-wal
+
+## Dotnet tools (local tool restore artifacts)
+.dotnet/
