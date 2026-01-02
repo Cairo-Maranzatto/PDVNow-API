@@ -1,17 +1,29 @@
- using System.Text;
- using Microsoft.AspNetCore.Authentication.JwtBearer;
- using Microsoft.EntityFrameworkCore;
- using Microsoft.IdentityModel.Tokens;
- using Microsoft.OpenApi.Models;
- using PDVNow.Auth;
- using PDVNow.Auth.Services;
- using PDVNow.Data;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using PDVNow.Auth;
+using PDVNow.Auth.Services;
+using PDVNow.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
 builder.Services.AddControllers();
+
+// Configuração CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -100,6 +112,9 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseHttpsRedirection();
+
+// Habilitar CORS - DEVE vir antes de Authentication e Authorization
+app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
 
