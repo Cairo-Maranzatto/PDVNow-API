@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -32,9 +33,12 @@ public sealed class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("login")]
-    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<AuthResponseDto>> Login(
+        [FromBody] LoginRequest request,
+        CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+        if (string.IsNullOrWhiteSpace(request.Username) ||
+            string.IsNullOrWhiteSpace(request.Password))
             return BadRequest();
 
         var normalized = request.Username.Trim().ToLowerInvariant();
@@ -45,61 +49,68 @@ public sealed class AuthController : ControllerBase
         if (user is null || !user.IsActive)
             return Unauthorized();
 
-        var verify = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
+        var verify = _passwordHasher.VerifyHashedPassword(
+            user, user.PasswordHash, request.Password);
+
         if (verify == PasswordVerificationResult.Failed)
             return Unauthorized();
 
         var nowUtc = DateTimeOffset.UtcNow;
-        var (accessToken, accessExpiresAtUtc) = _jwtTokenService.CreateAccessToken(user, nowUtc);
+
+        var (accessToken, accessExpiresAtUtc) =
+            _jwtTokenService.CreateAccessToken(user, nowUtc);
 
         var refreshToken = RefreshTokenGenerator.GenerateOpaqueToken();
         var refreshExpiresAtUtc = nowUtc.AddDays(_jwtOptions.RefreshTokenDays);
 
-        var refreshEntity = new RefreshToken
+        _db.RefreshTokens.Add(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
             TokenHash = TokenHasher.Sha256Base64(refreshToken),
             ExpiresAtUtc = refreshExpiresAtUtc,
             CreatedAtUtc = nowUtc
-        };
+        });
 
-        _db.RefreshTokens.Add(refreshEntity);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return Ok(new AuthResponse(
+        SetAuthCookies(accessToken, refreshToken, accessExpiresAtUtc, refreshExpiresAtUtc);
+
+        return Ok(new AuthResponseDto(
             user.Id,
             user.Username,
-            user.UserType.ToString(),
-            accessToken,
-            accessExpiresAtUtc,
-            refreshToken,
-            refreshExpiresAtUtc));
+            user.UserType.ToString()));
     }
 
     [AllowAnonymous]
     [HttpPost("refresh")]
-    public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<AuthResponseDto>> Refresh(
+        CancellationToken cancellationToken)
     {
-        if (request.UserId == Guid.Empty || string.IsNullOrWhiteSpace(request.RefreshToken))
-            return BadRequest();
+        if (!Request.Cookies.TryGetValue("refresh_token", out var refreshToken) ||
+            string.IsNullOrWhiteSpace(refreshToken))
+            return Unauthorized();
 
-        var tokenHash = TokenHasher.Sha256Base64(request.RefreshToken);
+        var tokenHash = TokenHasher.Sha256Base64(refreshToken);
 
         var stored = await _db.RefreshTokens
-            .SingleOrDefaultAsync(t => t.UserId == request.UserId && t.TokenHash == tokenHash, cancellationToken);
+            .Include(t => t.User)
+            .SingleOrDefaultAsync(t => t.TokenHash == tokenHash, cancellationToken);
 
         if (stored is null || stored.IsRevoked || stored.IsExpired)
             return Unauthorized();
 
-        var user = await _db.Users.SingleOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
-        if (user is null || !user.IsActive)
+        var user = stored.User;
+        if (!user.IsActive)
             return Unauthorized();
 
         var nowUtc = DateTimeOffset.UtcNow;
+
+        // Revoga o refresh antigo
         stored.RevokedAtUtc = nowUtc;
 
-        var (accessToken, accessExpiresAtUtc) = _jwtTokenService.CreateAccessToken(user, nowUtc);
+        var (newAccessToken, accessExpiresAtUtc) =
+            _jwtTokenService.CreateAccessToken(user, nowUtc);
 
         var newRefreshToken = RefreshTokenGenerator.GenerateOpaqueToken();
         var refreshExpiresAtUtc = nowUtc.AddDays(_jwtOptions.RefreshTokenDays);
@@ -115,13 +126,84 @@ public sealed class AuthController : ControllerBase
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        return Ok(new AuthResponse(
+        SetAuthCookies(
+            newAccessToken,
+            newRefreshToken,
+            accessExpiresAtUtc,
+            refreshExpiresAtUtc);
+
+        return Ok(new AuthResponseDto(
             user.Id,
             user.Username,
-            user.UserType.ToString(),
-            accessToken,
-            accessExpiresAtUtc,
-            newRefreshToken,
-            refreshExpiresAtUtc));
+            user.UserType.ToString()));
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
+    {
+        if (Request.Cookies.TryGetValue("refresh_token", out var refreshToken))
+        {
+            var tokenHash = TokenHasher.Sha256Base64(refreshToken);
+
+            var stored = await _db.RefreshTokens
+                .SingleOrDefaultAsync(t => t.TokenHash == tokenHash, cancellationToken);
+
+            if (stored is not null)
+            {
+                stored.RevokedAtUtc = DateTimeOffset.UtcNow;
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        Response.Cookies.Delete("access_token");
+        Response.Cookies.Delete("refresh_token");
+
+        return NoContent();
+    }
+
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<ActionResult<AuthResponseDto>> Me(
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userId, out var id))
+            return Unauthorized();
+
+        var user = await _db.Users
+            .SingleOrDefaultAsync(u => u.Id == id, cancellationToken);
+
+        if (user is null || !user.IsActive)
+            return Unauthorized();
+
+        return Ok(new AuthResponseDto(
+            user.Id,
+            user.Username,
+            user.UserType.ToString()));
+    }
+
+    private void SetAuthCookies(
+        string accessToken,
+        string refreshToken,
+        DateTimeOffset accessExpires,
+        DateTimeOffset refreshExpires)
+    {
+        Response.Cookies.Append("access_token", accessToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = accessExpires,
+            Path = "/"
+        });
+
+        Response.Cookies.Append("refresh_token", refreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = refreshExpires,
+            Path = "/api/v1/auth"
+        });
     }
 }
