@@ -19,6 +19,8 @@ public sealed class AppUser
 
     public bool IsActive { get; set; } = true;
 
+    public bool Excluded { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();

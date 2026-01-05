@@ -1,12 +1,15 @@
+using PDVNow.Entities;
+
 namespace PDVNow.Dtos.Products;
 
 public sealed record ProductResponse(
     Guid Id,
+    int Code,
     string Name,
     string? Description,
     string? Sku,
     string? Barcode,
-    string Unit,
+    ProductUnit Unit,
     decimal CostPrice,
     decimal SalePrice,
     decimal StockQuantity,

@@ -2,11 +2,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace PDVNow.Entities;
 
-public sealed class Supplier
+public sealed class Customer
 {
     public Guid Id { get; set; }
 
     public int Code { get; set; }
+
+    public CustomerPersonType PersonType { get; set; } = CustomerPersonType.Individual;
 
     [MaxLength(200)]
     public string Name { get; set; } = string.Empty;
@@ -15,10 +17,7 @@ public sealed class Supplier
     public string? TradeName { get; set; }
 
     [MaxLength(14)]
-    public string? Cnpj { get; set; }
-
-    [MaxLength(20)]
-    public string? StateRegistration { get; set; }
+    public string? Document { get; set; }
 
     [MaxLength(200)]
     public string? Email { get; set; }
@@ -26,8 +25,16 @@ public sealed class Supplier
     [MaxLength(30)]
     public string? Phone { get; set; }
 
+    [MaxLength(30)]
+    public string? Mobile { get; set; }
+
+    public DateOnly? BirthDate { get; set; }
+
     [MaxLength(300)]
     public string? AddressLine1 { get; set; }
+
+    [MaxLength(300)]
+    public string? AddressLine2 { get; set; }
 
     [MaxLength(100)]
     public string? City { get; set; }
@@ -37,6 +44,13 @@ public sealed class Supplier
 
     [MaxLength(10)]
     public string? PostalCode { get; set; }
+
+    [MaxLength(1000)]
+    public string? Notes { get; set; }
+
+    public decimal CreditLimit { get; set; }
+
+    public decimal CurrentBalance { get; set; }
 
     public bool IsActive { get; set; } = true;
 

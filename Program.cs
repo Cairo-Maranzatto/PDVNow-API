@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -6,11 +7,17 @@ using Microsoft.OpenApi.Models;
 using PDVNow.Auth;
 using PDVNow.Auth.Services;
 using PDVNow.Data;
+using PDVNow.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services
+    .AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 
 // Configuração CORS
 builder.Services.AddCors(options =>
@@ -57,8 +64,11 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<SeedAdminOptions>(builder.Configuration.GetSection("SeedAdmin"));
+builder.Services.Configure<CashRegisterOptions>(builder.Configuration.GetSection("CashRegister"));
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddScoped<DatabaseSeeder>();
+builder.Services.AddScoped<AdminOverrideCodeService>();
+builder.Services.AddScoped<CashRegisterService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));

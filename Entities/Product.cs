@@ -6,6 +6,8 @@ public sealed class Product
 {
     public Guid Id { get; set; }
 
+    public int Code { get; set; }
+
     [MaxLength(200)]
     public string Name { get; set; } = string.Empty;
 
@@ -18,8 +20,7 @@ public sealed class Product
     [MaxLength(30)]
     public string? Barcode { get; set; }
 
-    [MaxLength(20)]
-    public string Unit { get; set; } = "UN";
+    public ProductUnit Unit { get; set; } = ProductUnit.UN;
 
     public decimal CostPrice { get; set; }
 
@@ -30,6 +31,8 @@ public sealed class Product
     public decimal? MinStockQuantity { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    public bool Excluded { get; set; }
 
     public Guid? SupplierId { get; set; }
 

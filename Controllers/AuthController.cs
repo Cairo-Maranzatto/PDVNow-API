@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ using PDVNow.Auth.Dtos;
 using PDVNow.Auth.Entities;
 using PDVNow.Auth.Services;
 using PDVNow.Data;
+using PDVNow.Entities;
 
 namespace PDVNow.Controllers;
 
@@ -19,15 +21,18 @@ public sealed class AuthController : ControllerBase
     private readonly PasswordHasher<AppUser> _passwordHasher;
     private readonly JwtTokenService _jwtTokenService;
     private readonly JwtOptions _jwtOptions;
+    private readonly CashRegisterOptions _cashRegisterOptions;
 
     public AuthController(
         AppDbContext db,
         JwtTokenService jwtTokenService,
-        Microsoft.Extensions.Options.IOptions<JwtOptions> jwtOptions)
+        Microsoft.Extensions.Options.IOptions<JwtOptions> jwtOptions,
+        Microsoft.Extensions.Options.IOptions<CashRegisterOptions> cashRegisterOptions)
     {
         _db = db;
         _jwtTokenService = jwtTokenService;
         _jwtOptions = jwtOptions.Value;
+        _cashRegisterOptions = cashRegisterOptions.Value;
         _passwordHasher = new PasswordHasher<AppUser>();
     }
 
@@ -80,6 +85,38 @@ public sealed class AuthController : ControllerBase
             user.Id,
             user.Username,
             user.UserType.ToString()));
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    [HttpPost("generate-code")]
+    public async Task<ActionResult<GenerateOverrideCodeResponse>> GenerateCode(
+        [FromBody] GenerateOverrideCodeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var adminIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(adminIdStr, out var adminId))
+            return Unauthorized();
+
+        var nowUtc = DateTimeOffset.UtcNow;
+
+        var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+        var expiresAtUtc = nowUtc.AddSeconds(_cashRegisterOptions.OverrideCodeExpirationSeconds);
+
+        var entity = new AdminOverrideCode
+        {
+            Id = Guid.NewGuid(),
+            CodeHash = TokenHasher.Sha256Base64(code),
+            Purpose = request.Purpose,
+            CreatedAtUtc = nowUtc,
+            ExpiresAtUtc = expiresAtUtc,
+            CreatedByAdminUserId = adminId,
+            Justification = string.IsNullOrWhiteSpace(request.Justification) ? null : request.Justification.Trim()
+        };
+
+        _db.AdminOverrideCodes.Add(entity);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new GenerateOverrideCodeResponse(code, expiresAtUtc));
     }
 
     [AllowAnonymous]

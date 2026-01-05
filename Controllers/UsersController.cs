@@ -31,13 +31,17 @@ public sealed class UsersController : ControllerBase
         var username = request.Username.Trim().ToLowerInvariant();
         var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
 
-        var usernameExists = await _db.Users.AnyAsync(u => u.Username.ToLower() == username, cancellationToken);
+        var usernameExists = await _db.Users
+            .IgnoreQueryFilters()
+            .AnyAsync(u => u.Username.ToLower() == username, cancellationToken);
         if (usernameExists)
             return Conflict("Username já existe.");
 
         if (email is not null)
         {
-            var emailExists = await _db.Users.AnyAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower(), cancellationToken);
+            var emailExists = await _db.Users
+                .IgnoreQueryFilters()
+                .AnyAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower(), cancellationToken);
             if (emailExists)
                 return Conflict("Email já existe.");
         }
@@ -49,6 +53,7 @@ public sealed class UsersController : ControllerBase
             Email = email,
             UserType = request.UserType,
             IsActive = request.IsActive,
+            Excluded = false,
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
 
@@ -80,5 +85,18 @@ public sealed class UsersController : ControllerBase
             user.UserType.ToString(),
             user.IsActive,
             user.CreatedAtUtc));
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult> Delete([FromRoute] Guid id, CancellationToken cancellationToken)
+    {
+        var user = await _db.Users.SingleOrDefaultAsync(u => u.Id == id, cancellationToken);
+        if (user is null)
+            return NotFound();
+
+        user.Excluded = true;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
     }
 }

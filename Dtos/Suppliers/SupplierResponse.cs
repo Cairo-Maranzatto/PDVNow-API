@@ -2,6 +2,7 @@ namespace PDVNow.Dtos.Suppliers;
 
 public sealed record SupplierResponse(
     Guid Id,
+    int Code,
     string Name,
     string? TradeName,
     string? Cnpj,

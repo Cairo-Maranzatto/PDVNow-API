@@ -65,6 +65,7 @@ public sealed class ProductsController : ControllerBase
             .Take(take)
             .Select(p => new ProductResponse(
                 p.Id,
+                p.Code,
                 p.Name,
                 p.Description,
                 p.Sku,
@@ -95,6 +96,7 @@ public sealed class ProductsController : ControllerBase
 
         return Ok(new ProductResponse(
             product.Id,
+            product.Code,
             product.Name,
             product.Description,
             product.Sku,
@@ -120,9 +122,6 @@ public sealed class ProductsController : ControllerBase
         if (request.CostPrice < 0 || request.SalePrice < 0 || request.StockQuantity < 0)
             return BadRequest();
 
-        if (string.IsNullOrWhiteSpace(request.Unit))
-            return BadRequest();
-
         if (request.SupplierId.HasValue)
         {
             var supplierExists = await _db.Suppliers.AnyAsync(s => s.Id == request.SupplierId.Value, cancellationToken);
@@ -139,7 +138,7 @@ public sealed class ProductsController : ControllerBase
             Description = request.Description?.Trim(),
             Sku = request.Sku?.Trim(),
             Barcode = request.Barcode?.Trim(),
-            Unit = request.Unit.Trim(),
+            Unit = request.Unit,
             CostPrice = request.CostPrice,
             SalePrice = request.SalePrice,
             StockQuantity = request.StockQuantity,
@@ -163,6 +162,7 @@ public sealed class ProductsController : ControllerBase
 
         return CreatedAtAction(nameof(GetById), new { id = product.Id }, new ProductResponse(
             product.Id,
+            product.Code,
             product.Name,
             product.Description,
             product.Sku,
@@ -185,7 +185,7 @@ public sealed class ProductsController : ControllerBase
         [FromBody] UpdateProductRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Unit))
+        if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest();
 
         if (request.CostPrice < 0 || request.SalePrice < 0 || request.StockQuantity < 0)
@@ -206,7 +206,7 @@ public sealed class ProductsController : ControllerBase
         product.Description = request.Description?.Trim();
         product.Sku = request.Sku?.Trim();
         product.Barcode = request.Barcode?.Trim();
-        product.Unit = request.Unit.Trim();
+        product.Unit = request.Unit;
         product.CostPrice = request.CostPrice;
         product.SalePrice = request.SalePrice;
         product.StockQuantity = request.StockQuantity;
@@ -226,6 +226,7 @@ public sealed class ProductsController : ControllerBase
 
         return Ok(new ProductResponse(
             product.Id,
+            product.Code,
             product.Name,
             product.Description,
             product.Sku,
@@ -249,7 +250,7 @@ public sealed class ProductsController : ControllerBase
         if (product is null)
             return NotFound();
 
-        product.IsActive = false;
+        product.Excluded = true;
         product.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
 

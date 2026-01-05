@@ -47,6 +47,7 @@ public sealed class SuppliersController : ControllerBase
             .Take(take)
             .Select(s => new SupplierResponse(
                 s.Id,
+                s.Code,
                 s.Name,
                 s.TradeName,
                 s.Cnpj,
@@ -77,6 +78,7 @@ public sealed class SuppliersController : ControllerBase
 
         return Ok(new SupplierResponse(
             supplier.Id,
+            supplier.Code,
             supplier.Name,
             supplier.TradeName,
             supplier.Cnpj,
@@ -124,6 +126,7 @@ public sealed class SuppliersController : ControllerBase
 
         var response = new SupplierResponse(
             supplier.Id,
+            supplier.Code,
             supplier.Name,
             supplier.TradeName,
             supplier.Cnpj,
@@ -172,6 +175,7 @@ public sealed class SuppliersController : ControllerBase
 
         return Ok(new SupplierResponse(
             supplier.Id,
+            supplier.Code,
             supplier.Name,
             supplier.TradeName,
             supplier.Cnpj,
@@ -195,7 +199,7 @@ public sealed class SuppliersController : ControllerBase
         if (supplier is null)
             return NotFound();
 
-        supplier.IsActive = false;
+        supplier.Excluded = true;
         supplier.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(cancellationToken);

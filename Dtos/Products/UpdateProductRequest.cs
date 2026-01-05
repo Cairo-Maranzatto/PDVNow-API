@@ -1,3 +1,5 @@
+using PDVNow.Entities;
+
 namespace PDVNow.Dtos.Products;
 
 public sealed record UpdateProductRequest(
@@ -5,7 +7,7 @@ public sealed record UpdateProductRequest(
     string? Description,
     string? Sku,
     string? Barcode,
-    string Unit,
+    ProductUnit Unit,
     decimal CostPrice,
     decimal SalePrice,
     decimal StockQuantity,
