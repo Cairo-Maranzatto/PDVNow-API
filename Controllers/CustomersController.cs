@@ -67,7 +67,7 @@ public sealed class CustomersController : ControllerBase
         }
 
         var result = await customers
-            .OrderBy(c => c.Name)
+            .OrderBy(c => c.Code)
             .Skip(skip)
             .Take(take)
             .Select(c => new CustomerResponse(

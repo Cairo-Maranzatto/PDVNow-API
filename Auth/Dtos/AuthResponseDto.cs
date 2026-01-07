@@ -3,4 +3,4 @@
 public record AuthResponseDto(
     Guid UserId,
     string Username,
-    string UserType);
+    UserType UserType);

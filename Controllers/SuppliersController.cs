@@ -42,7 +42,7 @@ public sealed class SuppliersController : ControllerBase
         }
 
         var result = await suppliers
-            .OrderBy(s => s.Name)
+            .OrderBy(s => s.Code)
             .Skip(skip)
             .Take(take)
             .Select(s => new SupplierResponse(

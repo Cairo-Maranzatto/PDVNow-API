@@ -3,7 +3,7 @@ namespace PDVNow.Auth.Dtos;
 public sealed record AuthResponse(
     Guid UserId,
     string Username,
-    string UserType,
+    UserType UserType,
     string AccessToken,
     DateTimeOffset AccessTokenExpiresAtUtc,
     string RefreshToken,

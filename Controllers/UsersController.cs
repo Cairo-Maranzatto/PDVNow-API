@@ -22,6 +22,43 @@ public sealed class UsersController : ControllerBase
         _passwordHasher = new PasswordHasher<AppUser>();
     }
 
+    [HttpGet]
+    public async Task<ActionResult<IReadOnlyList<UserResponse>>> List(
+        [FromQuery] string? query,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 50,
+        CancellationToken cancellationToken = default)
+    {
+        if (skip < 0) skip = 0;
+        if (take <= 0) take = 50;
+        if (take > 200) take = 200;
+
+        IQueryable<AppUser> users = _db.Users.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var q = query.Trim();
+            users = users.Where(u =>
+                u.Username.Contains(q) ||
+                (u.Email != null && u.Email.Contains(q)));
+        }
+
+        var result = await users
+            .OrderBy(u => u.Username)
+            .Skip(skip)
+            .Take(take)
+            .Select(u => new UserResponse(
+                u.Id,
+                u.Username,
+                u.Email,
+                u.UserType,
+                u.IsActive,
+                u.CreatedAtUtc))
+            .ToListAsync(cancellationToken);
+
+        return Ok(result);
+    }
+
     [HttpPost]
     public async Task<ActionResult<UserResponse>> Create([FromBody] CreateUserRequest request, CancellationToken cancellationToken)
     {
@@ -66,7 +103,7 @@ public sealed class UsersController : ControllerBase
             user.Id,
             user.Username,
             user.Email,
-            user.UserType.ToString(),
+            user.UserType,
             user.IsActive,
             user.CreatedAtUtc));
     }
@@ -82,7 +119,43 @@ public sealed class UsersController : ControllerBase
             user.Id,
             user.Username,
             user.Email,
-            user.UserType.ToString(),
+            user.UserType,
+            user.IsActive,
+            user.CreatedAtUtc));
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<UserResponse>> Update(
+        [FromRoute] Guid id,
+        [FromBody] UpdateUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await _db.Users.SingleOrDefaultAsync(u => u.Id == id, cancellationToken);
+        if (user is null)
+            return NotFound();
+
+        var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
+
+        if (email is not null && email != user.Email)
+        {
+            var emailExists = await _db.Users
+                .IgnoreQueryFilters()
+                .AnyAsync(u => u.Id != id && u.Email != null && u.Email.ToLower() == email.ToLower(), cancellationToken);
+            if (emailExists)
+                return Conflict("Email já existe.");
+        }
+
+        user.Email = email;
+        user.UserType = request.UserType;
+        user.IsActive = request.IsActive;
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new UserResponse(
+            user.Id,
+            user.Username,
+            user.Email,
+            user.UserType,
             user.IsActive,
             user.CreatedAtUtc));
     }

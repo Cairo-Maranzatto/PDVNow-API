@@ -84,7 +84,7 @@ public sealed class AuthController : ControllerBase
         return Ok(new AuthResponseDto(
             user.Id,
             user.Username,
-            user.UserType.ToString()));
+            user.UserType));
     }
 
     [Authorize(Policy = "AdminOnly")]
@@ -172,7 +172,7 @@ public sealed class AuthController : ControllerBase
         return Ok(new AuthResponseDto(
             user.Id,
             user.Username,
-            user.UserType.ToString()));
+            user.UserType));
     }
 
     [HttpPost("logout")]
@@ -216,7 +216,7 @@ public sealed class AuthController : ControllerBase
         return Ok(new AuthResponseDto(
             user.Id,
             user.Username,
-            user.UserType.ToString()));
+            user.UserType));
     }
 
     private void SetAuthCookies(

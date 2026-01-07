@@ -60,7 +60,7 @@ public sealed class ProductsController : ControllerBase
         }
 
         var result = await products
-            .OrderBy(p => p.Name)
+            .OrderBy(p => p.Code)
             .Skip(skip)
             .Take(take)
             .Select(p => new ProductResponse(
