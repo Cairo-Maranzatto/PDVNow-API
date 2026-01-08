@@ -74,6 +74,7 @@ builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddScoped<DatabaseSeeder>();
 builder.Services.AddScoped<AdminOverrideCodeService>();
 builder.Services.AddScoped<CashRegisterService>();
+builder.Services.AddScoped<SalesService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));

@@ -19,6 +19,10 @@ public sealed class AppDbContext : DbContext
     public DbSet<CashSession> CashSessions => Set<CashSession>();
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
     public DbSet<CashSessionDenomination> CashSessionDenominations => Set<CashSessionDenomination>();
+    public DbSet<Sale> Sales => Set<Sale>();
+    public DbSet<SaleItem> SaleItems => Set<SaleItem>();
+    public DbSet<SalePayment> SalePayments => Set<SalePayment>();
+    public DbSet<SaleEvent> SaleEvents => Set<SaleEvent>();
     public DbSet<AdminOverrideCode> AdminOverrideCodes => Set<AdminOverrideCode>();
     public DbSet<AdminOverrideRequest> AdminOverrideRequests => Set<AdminOverrideRequest>();
     public DbSet<CashSessionReopenEvent> CashSessionReopenEvents => Set<CashSessionReopenEvent>();
@@ -345,6 +349,142 @@ public sealed class AppDbContext : DbContext
 
             b.HasIndex(x => x.CashSessionId);
             b.HasIndex(x => new { x.CashSessionId, x.Denomination }).IsUnique();
+        });
+
+        modelBuilder.Entity<Sale>(b =>
+        {
+            b.ToTable("sales");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.Code)
+                .ValueGeneratedOnAdd();
+            b.HasIndex(x => x.Code).IsUnique();
+
+            b.Property(x => x.Status).IsRequired();
+
+            b.Property(x => x.SubtotalAmount).HasPrecision(18, 4);
+            b.Property(x => x.ItemDiscountTotalAmount).HasPrecision(18, 4);
+            b.Property(x => x.SaleDiscountAmount).HasPrecision(18, 4);
+            b.Property(x => x.TotalAmount).HasPrecision(18, 4);
+            b.Property(x => x.PaidAmount).HasPrecision(18, 4);
+
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedAtUtc);
+            b.Property(x => x.FinalizedAtUtc);
+            b.Property(x => x.CancelledAtUtc);
+
+            b.Property(x => x.CancelReason)
+                .HasMaxLength(500);
+
+            b.HasOne(x => x.CashRegister)
+                .WithMany()
+                .HasForeignKey(x => x.CashRegisterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.CashSession)
+                .WithMany()
+                .HasForeignKey(x => x.CashSessionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.Customer)
+                .WithMany()
+                .HasForeignKey(x => x.CustomerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => x.CashRegisterId);
+            b.HasIndex(x => x.CashSessionId);
+            b.HasIndex(x => x.CustomerId);
+            b.HasIndex(x => x.Status);
+            b.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<SaleItem>(b =>
+        {
+            b.ToTable("sale_items");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.Quantity)
+                .HasPrecision(18, 4)
+                .IsRequired();
+
+            b.Property(x => x.UnitPriceOriginal)
+                .HasPrecision(18, 4)
+                .IsRequired();
+
+            b.Property(x => x.UnitPriceFinal)
+                .HasPrecision(18, 4)
+                .IsRequired();
+
+            b.Property(x => x.DiscountAmount)
+                .HasPrecision(18, 4)
+                .IsRequired();
+
+            b.Property(x => x.LineTotalAmount)
+                .HasPrecision(18, 4)
+                .IsRequired();
+
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedAtUtc);
+
+            b.HasOne(x => x.Sale)
+                .WithMany()
+                .HasForeignKey(x => x.SaleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.Product)
+                .WithMany()
+                .HasForeignKey(x => x.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => x.SaleId);
+            b.HasIndex(x => new { x.SaleId, x.ProductId }).IsUnique();
+        });
+
+        modelBuilder.Entity<SalePayment>(b =>
+        {
+            b.ToTable("sale_payments");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.Method).IsRequired();
+
+            b.Property(x => x.Amount)
+                .HasPrecision(18, 4)
+                .IsRequired();
+
+            b.Property(x => x.AmountReceived)
+                .HasPrecision(18, 4);
+
+            b.Property(x => x.ChangeGiven)
+                .HasPrecision(18, 4);
+
+            b.Property(x => x.AuthorizationCode)
+                .HasMaxLength(80);
+
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+
+            b.HasOne(x => x.Sale)
+                .WithMany()
+                .HasForeignKey(x => x.SaleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => x.SaleId);
+            b.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<SaleEvent>(b =>
+        {
+            b.ToTable("sale_events");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.Type).IsRequired();
+
+            b.Property(x => x.Details)
+                .HasMaxLength(2000);
+
+            b.Property(x => x.PerformedAtUtc).IsRequired();
+
+            b.HasIndex(x => x.SaleId);
+            b.HasIndex(x => x.PerformedAtUtc);
         });
     }
 }
