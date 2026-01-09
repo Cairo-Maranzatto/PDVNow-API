@@ -544,6 +544,124 @@ curl -k -i \
 
 ---
 
+## 7) SalesController (`/api/v1/sales`) — PdvAccess
+
+Módulo de Vendas com:
+
+- `Sale`: venda com **código incremental** (`Code`), status em etapas e auditoria.
+- `SaleItem`: itens com preço original/final, desconto por item e total de linha.
+- `SalePayment`: pagamentos múltiplos (pagamento misto).
+
+Regras principais:
+
+- **Vínculo obrigatório** com `CashRegister` e com uma **CashSession aberta** no momento da criação.
+- **Cliente obrigatório** (`CustomerId`).
+- **Status**:
+  - `Draft` (rascunho)
+  - `PendingPayment` (com itens, aguardando pagamento)
+  - `Paid` (finalizada)
+  - `Cancelled`
+- **Pagamentos mistos**:
+  - N pagamentos por venda.
+  - Em dinheiro (`Cash`), pode informar `amountReceived` e o sistema calcula `changeGiven`.
+- **Desconto com liberação**:
+  - Ajustes que fogem do padrão exigem `overrideCode` (Admin bypass).
+- **Cancelamento**:
+  - Marca como `Cancelled`.
+  - Se houver entrada em dinheiro, gera **estorno** em `CashMovement`.
+
+### `GET /api/v1/sales`
+
+Filtros: `cashRegisterId`, `cashSessionId`, `customerId`, `status`, `skip`, `take`.
+
+```bash
+curl -k \
+  -b cookies.txt \
+  "https://localhost:5001/api/v1/sales?status=Paid&take=50"
+```
+
+### `POST /api/v1/sales`
+
+Cria uma venda em `Draft` vinculada ao caixa e à sessão aberta.
+
+```bash
+curl -k -i \
+  -b cookies.txt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cashRegisterId":"<CASH_REGISTER_ID>",
+    "customerId":"<CUSTOMER_ID>"
+  }' \
+  https://localhost:5001/api/v1/sales
+```
+
+### `POST /api/v1/sales/{saleId}/items`
+
+Adiciona item na venda.
+
+```bash
+curl -k -i \
+  -b cookies.txt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "productId":"<PRODUCT_ID>",
+    "quantity":2,
+    "unitPriceFinal": 14.90,
+    "discountAmount": 0,
+    "overrideCode": "123456"
+  }' \
+  https://localhost:5001/api/v1/sales/<SALE_ID>/items
+```
+
+### `POST /api/v1/sales/{saleId}/payments`
+
+Adiciona pagamento.
+
+```bash
+curl -k -i \
+  -b cookies.txt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "method":"Cash",
+    "amount": 20.00,
+    "amountReceived": 50.00,
+    "authorizationCode": null
+  }' \
+  https://localhost:5001/api/v1/sales/<SALE_ID>/payments
+```
+
+### `POST /api/v1/sales/{saleId}/finalize`
+
+Finaliza a venda (exige pagamento suficiente; pode aplicar desconto na venda).
+
+```bash
+curl -k -i \
+  -b cookies.txt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "saleDiscountAmount": 0,
+    "overrideCode": "123456"
+  }' \
+  https://localhost:5001/api/v1/sales/<SALE_ID>/finalize
+```
+
+### `POST /api/v1/sales/{saleId}/cancel`
+
+Cancela a venda (Admin bypass; pode exigir `overrideCode`).
+
+```bash
+curl -k -i \
+  -b cookies.txt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason":"Cancelamento solicitado pelo cliente",
+    "overrideCode":"123456"
+  }' \
+  https://localhost:5001/api/v1/sales/<SALE_ID>/cancel
+```
+
+---
+
 ## Configurações do módulo Caixa (`CashRegisterOptions`)
 
 Seção: `CashRegister` (exemplo):
@@ -564,4 +682,3 @@ Seção: `CashRegister` (exemplo):
 
 - Expor endpoint(s) para consultar denominações do fechamento e histórico de movimentos.
 - Melhorar DTO do endpoint de reabertura (`Reopen`) para `{ "justification": "..." }`.
-- Integração com vendas/pagamentos (quando o módulo de vendas estiver disponível).
